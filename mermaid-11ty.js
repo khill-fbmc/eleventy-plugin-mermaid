@@ -1,24 +1,54 @@
-import he from 'he';
+// @ts-check
+import he from "he";
 
-export default function(eleventyConfig, options) {
-const highlighter = eleventyConfig.markdownHighlighter;
-  const html_tag = options?.html_tag || 'pre';
-  const extra_classes = options?.extra_classes ? ' ' + options.extra_classes : '';
-  let mermaid_config = {...options?.mermaid_config || {}, ...{loadOnSave: true}};
-  let src = options?.mermaid_js_src || "https://unpkg.com/mermaid@11.6.0/dist/mermaid.esm.min.mjs";
+const DEFAULT_MERMAID_VERSION = "11.11.0";
+
+const UNPKG_MERMAID_LINK = `https://unpkg.com/mermaid@${DEFAULT_MERMAID_VERSION}/dist/mermaid.esm.min.mjs`;
+
+/**
+ * @param {import("@11ty/eleventy/UserConfig").default} eleventyConfig
+ * @param {*} options
+ */
+export default function (eleventyConfig, options) {
+  const { markdownHighlighter } = eleventyConfig;
+  const src = options?.mermaid_js_src || UNPKG_MERMAID_LINK;
+  const html_tag = options?.html_tag || "pre";
+  const extra_classes = options?.extra_classes
+    ? " " + options.extra_classes
+    : "";
+  const mermaid_config = {
+    ...(options?.mermaid_config || {}),
+    ...{
+      loadOnSave: true,
+      startOnLoad: true,
+    },
+  };
 
   eleventyConfig.addShortcode("mermaid_js", () => {
-    return `<script type="module" async>import mermaid from "${src}";document.addEventListener('DOMContentLoaded', mermaid.initialize(${JSON.stringify(mermaid_config)}));</script>`
+    return [
+      `<script type="module" async>`,
+      `import mermaid from "${src}";`,
+      `mermaid.initialize(${JSON.stringify(mermaid_config)});`,
+      `</script>`,
+    ].join("\n");
   });
 
-  eleventyConfig.addMarkdownHighlighter((str, language) => {
-    if (language === "mermaid") {
-      return `<${html_tag} class="mermaid${extra_classes}">${he.encode(str)}</${html_tag}>`;
+  eleventyConfig.addMarkdownHighlighter(
+    /**
+     * @param {string} str
+     * @param {string} language
+     */
+    function (str, language) {
+      if (language === "mermaid") {
+        const content = he.encode(str);
+        return `<${html_tag} class="mermaid${extra_classes}">${content}</${html_tag}>`;
+      }
+      if (markdownHighlighter) {
+        return markdownHighlighter(str, language);
+      }
+      return `<pre class="${language}">${str}</pre>`;
     }
-    if (highlighter) {
-      return highlighter(str, language)
-    }
-    return `<pre class="${language}">${str}</pre>`;
-  });
-  return {}
+  );
+
+  return {};
 }
